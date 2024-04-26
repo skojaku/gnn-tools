@@ -16,7 +16,7 @@ from typing import Literal, Optional
 import torch
 import torch.utils.data
 from torch import Tensor
-from torch_geometric.data import Data
+from torch_geometric.data import Data, ClusterData
 from torch_geometric.utils import index_sort, narrow, select, sort_edge_index
 from torch_geometric.utils.sparse import index2ptr, ptr2index
 from torch_geometric.data import Data
@@ -221,6 +221,8 @@ def community_detection_task(
     # Set up minibatching for the data using a clustering algorithm
     num_sub_batches = 5
     batch_size = np.minimum(n_nodes, batch_size)
+    num_parts = np.maximum(2, int(n_nodes / batch_size))
+    # cluster_data = ClusterData(data, num_parts=num_parts)  # 1. Create subgraphs.
     cluster_data = ModularityClusterData(
         data, resolution=resolution
     )  # 1. Create subgraphs.
@@ -311,27 +313,29 @@ def community_detection_task(
 
 def sample_community_membership_pairs(membership, n_samples):
 
+    coms, membership = np.unique(membership, return_inverse=True)
     n_nodes = len(membership)
+    n_coms = len(coms)
+
+    n_samples_com = np.bincount(np.random.randint(0, n_coms, n_samples))
+
     pos_pairs = set()
-    n_max_iter = 10
-    n_iter = 0
-    while (len(pos_pairs) < n_samples) and n_iter < n_max_iter:
-        _target_n_samples = n_samples - len(pos_pairs)
-        src = torch.randint(0, n_nodes, size=(_target_n_samples,))
-        trg = torch.randint(0, n_nodes, size=(_target_n_samples,))
-        s = membership[src] == membership[trg]
-        src, trg = src[s], trg[s]
-        n_iter += 1
-        if len(src) == 0:
+    for i in range(n_coms):
+        if n_samples_com[i] == 0:
             continue
+        nodes = np.where(membership == i)[0]
+        src, trg = tuple(
+            np.random.choice(nodes, size=n_samples_com[i] * 2).reshape((-1, 2)).T
+        )
         pos_pairs.update(set(list(src + trg * 1j)))
 
     neg_pairs = set()
     n_iter = 0
+    n_max_iter = 10
     while len(neg_pairs) < n_samples and n_iter < n_max_iter:
         _target_n_samples = n_samples - len(neg_pairs)
-        src = torch.randint(0, n_nodes, size=(_target_n_samples,))
-        trg = torch.randint(0, n_nodes, size=(_target_n_samples,))
+        src = np.random.randint(0, n_nodes, size=_target_n_samples)
+        trg = np.random.randint(0, n_nodes, size=_target_n_samples)
         s = membership[src] != membership[trg]
         n_iter += 1
         src, trg = src[s], trg[s]
@@ -343,9 +347,15 @@ def sample_community_membership_pairs(membership, n_samples):
     neg_pairs = list(neg_pairs)
     src_pos, trg_pos = np.real(pos_pairs), np.imag(pos_pairs)
     src_neg, trg_neg = np.real(neg_pairs), np.imag(neg_pairs)
+    src_pos, trg_pos, src_neg, trg_neg = (
+        src_pos.astype(int),
+        trg_pos.astype(int),
+        src_neg.astype(int),
+        trg_neg.astype(int),
+    )
 
-    assert torch.all(membership[src_pos] == membership[trg_pos])
-    assert torch.all(membership[src_neg] != membership[trg_neg])
+    assert np.all(membership[src_pos] == membership[trg_pos])
+    assert np.all(membership[src_neg] != membership[trg_neg])
 
     return src_pos, trg_pos, src_neg, trg_neg
 

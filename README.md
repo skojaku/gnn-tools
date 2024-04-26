@@ -11,15 +11,19 @@ pip install git+https://github.com/skojaku/gnn-tools.git
 
 Additionally, install the following packages:
 - [PyTorch](https://pytorch.org/get-started/locally/)
-- [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/en/latest/install/install.html)
-- [igraph](https://igraph.org/python/)
+- [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/)
+- [igraph](https://python.igraph.org/en/stable/)
 - [GPUtil](https://pypi.org/project/GPUtil/)
 - [tqdm](https://pypi.org/project/tqdm/)
 - [scikit-learn](https://scikit-learn.org/stable/install.html)
 - [networkx](https://networkx.org/documentation/stable/install.html)
-- [pandas](https://pandas.pydata.org/docs/install.html)
+- [pandas](https://pandas.pydata.org/docs/getting_started/install.html)
 - [numpy](https://numpy.org/install/)
 - [scipy](https://scipy.org/install/)
+
+### Example
+
+- [notebook/example_01.ipynb](./notebook/example_01.ipynb)
 
 ### Usage
 
