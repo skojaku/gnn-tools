@@ -23,7 +23,7 @@ Additionally, install the following packages:
 
 ### Example
 
-- [notebook/example_01.ipynb](./notebook/example_01.ipynb)
+- [notebooks/example_01.ipynb](./notebooks/example_01.ipynb)
 
 ### Usage
 
