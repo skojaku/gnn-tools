@@ -23,6 +23,7 @@ from torch_geometric.data import Data
 from torch_geometric.loader import ClusterLoader
 import GPUtil
 from adabelief_pytorch import AdaBelief
+from gnn_tools.LinkPredictionDataset import LinkPredictionDataset
 
 
 # ================================
@@ -55,9 +56,8 @@ def link_prediction_task(
         The device to use for training the model.
     epochs : int
         The number of epochs to train the model for.
-    negative_edge_sampler : Callable, optional
-        A function that samples negative edges given positive edges and the number of nodes in the graph.
-        If unspecified, a default negative sampling function is used.
+    negative_edge_sampler : str
+        Name of the negative edge sampler to use. Options are "degreeBiased" and "uniform", and "randomWalk".
     batch_size : int, optional
         The number of nodes in each minibatch.
     resolution : float, optional
@@ -93,7 +93,7 @@ def link_prediction_task(
 
     # Use default negative sampling function if none is specified
     if negative_edge_sampler is None:
-        negative_edge_sampler = negative_uniform
+        negative_edge_sampler = "uniform"
 
     # Set the model in training mode and initialize optimizer
     model.to(device)
@@ -114,37 +114,60 @@ def link_prediction_task(
 
     # Train the model for the specified number of epochs
     pbar = tqdm(total=epochs)
-    logsigmoid = torch.nn.LogSigmoid()
 
+    criterion = torch.nn.BCEWithLogitsLoss()
     for epoch in range(epochs):
         # Iterate over minibatches of the data
         ave_loss = 0
         n_iter = 0
         for sub_data in train_loader:
-            # Sample negative edges using specified or default sampler
-            pos_edge_index = sub_data.edge_index  # positive edges
-            x = sub_data.x
-            neg_edge_index = negative_edge_sampler(
-                edge_index=pos_edge_index,
-                num_nodes=x.shape[0],
-                num_neg_samples=2,
-            )
-            x = x.to(device)
-            neg_edge_index = neg_edge_index.to(device)
-            pos_edge_index = pos_edge_index.to(device)
-
-            # Zero-out gradient, compute embeddings and logits, and calculate loss
             optimizer.zero_grad()
 
-            # Negative edge injection
-            z = model(x, pos_edge_index)
+            # Sample negative edges using specified or default sampler
+            _edge_index = sub_data.edge_index  # positive edges
+            x = sub_data.x
 
-            pos = (z[pos_edge_index[0], :] * z[pos_edge_index[1], :]).sum(dim=1)
-            ploss = -pos.mean()
-            ploss = -logsigmoid(pos).mean()
-            neg = (z[neg_edge_index[0], :] * z[neg_edge_index[1], :]).sum(dim=1)
-            nloss = -logsigmoid(neg.neg()).mean()
-            loss = ploss + nloss / neg_edge_index.size()[0]
+            # To scipy sparse matrix
+            _n_nodes = x.size()[0]
+            _net = sparse.csr_matrix(
+                (
+                    np.ones_like(_edge_index[0]),
+                    (_edge_index[0].numpy(), _edge_index[1].numpy()),
+                ),
+                shape=(_n_nodes, _n_nodes),
+            )
+            test_net, test_edges = (
+                LinkPredictionDataset(
+                    testEdgeFraction=0.15,
+                    negative_edge_sampler=negative_edge_sampler,
+                    duplicated_negative_edges=True,
+                )
+                .fit(_net)
+                .transform()
+            )
+
+            src, trg, _ = sparse.find(test_net)
+            _train_edge_index = torch.LongTensor(np.vstack([src, trg])).to(device)
+            src_test, trg_test, y = (
+                test_edges["src"],
+                test_edges["trg"],
+                test_edges["isPositiveEdge"],
+            )
+
+            x = x.to(device)
+            # neg_edge_index = neg_edge_index.to(device)
+
+            # Negative edge injection
+            z = model(x, _train_edge_index)
+            # "            neg_edge_index = negative_edge_sampler(
+            # "                edge_index=_edge_index,
+            # "                num_nodes=x.shape[0],
+            # "                num_neg_samples=2,
+            # "            )
+
+            # Zero-out gradient, compute embeddings and logits, and calculate loss
+            score = (z[src_test, :] * z[trg_test, :]).sum(dim=1)
+            loss = criterion(score, torch.FloatTensor(y).to(device))
 
             # Compute gradients and update parameters of the model
             loss.backward()
@@ -166,26 +189,26 @@ def link_prediction_task(
 #
 # Node pair samplers
 #
-def degreeBiasedNegativeEdgeSampling(edge_index, num_nodes, num_neg_samples):
-    deg = np.bincount(edge_index.reshape(-1).cpu(), minlength=num_nodes).astype(float)
-    deg /= np.sum(deg)
-    t = np.random.choice(
-        num_nodes, p=deg, size=num_neg_samples * edge_index.size()[1]
-    ).reshape((num_neg_samples, edge_index.size()[1]))
-    return torch.LongTensor(t)
-
-
-def negative_uniform(edge_index, num_nodes, num_neg_samples):
-    t = np.random.randint(
-        0, num_nodes, size=num_neg_samples * edge_index.size()[1]
-    ).reshape((num_neg_samples, edge_index.size()[1]))
-    return torch.LongTensor(t)
-
-
-NegativeEdgeSampler = {
-    "degreeBiased": degreeBiasedNegativeEdgeSampling,
-    "uniform": negative_uniform,
-}
+# def degreeBiasedNegativeEdgeSampling(edge_index, num_nodes, num_neg_samples):
+#    deg = np.bincount(edge_index.reshape(-1).cpu(), minlength=num_nodes).astype(float)
+#    deg /= np.sum(deg)
+#    t = np.random.choice(
+#        num_nodes, p=deg, size=num_neg_samples * edge_index.size()[1]
+#    ).reshape((num_neg_samples, edge_index.size()[1]))
+#    return torch.LongTensor(t)
+#
+#
+# def negative_uniform(edge_index, num_nodes, num_neg_samples):
+#    t = np.random.randint(
+#        0, num_nodes, size=num_neg_samples * edge_index.size()[1]
+#    ).reshape((num_neg_samples, edge_index.size()[1]))
+#    return torch.LongTensor(t)
+#
+#
+# NegativeEdgeSampler = {
+#    "degreeBiased": degreeBiasedNegativeEdgeSampling,
+#    "uniform": negative_uniform,
+# }
 
 
 # ====================================

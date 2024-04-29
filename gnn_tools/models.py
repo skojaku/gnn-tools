@@ -71,7 +71,7 @@ def line(network, dim, num_walks=40, **params):
 
 
 @embedding_model
-def node2vec(network, dim, window_length=10, num_walks=40, **params):
+def node2vec(network, dim, window_length=10, num_walks=10, **params):
     model = gnn_tools.embeddings.Node2Vec(
         window_length=window_length, num_walks=num_walks
     )
@@ -80,7 +80,7 @@ def node2vec(network, dim, window_length=10, num_walks=40, **params):
 
 
 @embedding_model
-def deepwalk(network, dim, window_length=10, num_walks=40, **params):
+def deepwalk(network, dim, window_length=10, num_walks=10, **params):
     model = gnn_tools.embeddings.DeepWalk(
         window_length=window_length, num_walks=num_walks
     )
@@ -237,6 +237,7 @@ def GCN(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="uniform",
     **params
 ):
     return gnn_embedding(
@@ -249,7 +250,7 @@ def GCN(
         ),
         in_channels=dim,
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["uniform"],
+        negative_edge_sampler=negative_edge_sampler,
         epochs=epochs,
         device=device,
         memberships=memberships,
@@ -267,6 +268,7 @@ def GIN(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="uniform",
     **params
 ):
     return gnn_embedding(
@@ -279,7 +281,7 @@ def GIN(
         ),
         in_channels=dim,
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["uniform"],
+        negative_edge_sampler=negative_edge_sampler,
         device=device,
         epochs=epochs,
         memberships=memberships,
@@ -297,6 +299,7 @@ def PNA(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="uniform",
     **params
 ):
     return gnn_embedding(
@@ -320,7 +323,7 @@ def PNA(
         ),
         in_channels=dim,
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["uniform"],
+        negative_edge_sampler=negative_edge_sampler,
         device=device,
         epochs=epochs,
         memberships=memberships,
@@ -338,6 +341,7 @@ def EdgeCNN(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="uniform",
     **params
 ):
     return gnn_embedding(
@@ -350,7 +354,7 @@ def EdgeCNN(
         ),
         in_channels=dim,
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["uniform"],
+        negative_edge_sampler=negative_edge_sampler,
         device=device,
         epochs=epochs,
         memberships=memberships,
@@ -368,6 +372,7 @@ def GraphSAGE(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="uniform",
     **params
 ):
     return gnn_embedding(
@@ -380,7 +385,7 @@ def GraphSAGE(
         ),
         in_channels=dim,
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["uniform"],
+        negative_edge_sampler=negative_edge_sampler,
         device=device,
         epochs=epochs,
         memberships=memberships,
@@ -398,6 +403,7 @@ def GAT(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="uniform",
     **params
 ):
     return gnn_embedding(
@@ -411,7 +417,7 @@ def GAT(
         in_channels=dim,
         network=network,
         device=device,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["uniform"],
+        negative_edge_sampler=negative_edge_sampler,
         epochs=epochs,
         memberships=memberships,
         **params,
@@ -439,7 +445,7 @@ def dcGCN(
         ),
         in_channels=dim,
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["degreeBiased"],
+        negative_edge_sampler="degreeBiased",
         epochs=epochs,
         device=device,
         memberships=memberships,
@@ -457,22 +463,19 @@ def dcGIN(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="degreeBiased",
     **params
 ):
-    return gnn_embedding(
-        model=torch_geometric.nn.models.GIN(
-            in_channels=dim,
-            hidden_channels=dim_h,
-            num_layers=num_layers,
-            out_channels=dim,
-            dropout=dropout,
-        ),
+    return GIN(
         network=network,
-        in_channels=dim,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["degreeBiased"],
+        dim=dim,
         device=device,
+        dim_h=dim_h,
+        num_layers=num_layers,
         epochs=epochs,
+        dropout=dropout,
         memberships=memberships,
+        negative_edge_sampler=negative_edge_sampler,
         **params,
     )
 
@@ -487,22 +490,19 @@ def dcEdgeCNN(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="degreeBiased",
     **params
 ):
-    return gnn_embedding(
-        model=torch_geometric.nn.models.EdgeCNN(
-            in_channels=dim,
-            hidden_channels=dim_h,
-            num_layers=num_layers,
-            out_channels=dim,
-            dropout=dropout,
-        ),
-        in_channels=dim,
+    return EdgeCNN(
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["degreeBiased"],
+        dim=dim,
         device=device,
+        dim_h=dim_h,
+        num_layers=num_layers,
         epochs=epochs,
+        dropout=dropout,
         memberships=memberships,
+        negative_edge_sampler=negative_edge_sampler,
         **params,
     )
 
@@ -517,22 +517,19 @@ def dcGraphSAGE(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="degreeBiased",
     **params
 ):
-    return gnn_embedding(
-        model=torch_geometric.nn.models.GraphSAGE(
-            in_channels=dim,
-            hidden_channels=dim_h,
-            num_layers=num_layers,
-            out_channels=dim,
-            dropout=dropout,
-        ),
-        in_channels=dim,
+    return GraphSAGE(
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["degreeBiased"],
+        dim=dim,
         device=device,
+        dim_h=dim_h,
+        num_layers=num_layers,
         epochs=epochs,
+        dropout=dropout,
         memberships=memberships,
+        negative_edge_sampler=negative_edge_sampler,
         **params,
     )
 
@@ -547,21 +544,18 @@ def dcGAT(
     epochs=100,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="degreeBiased",
     **params
 ):
-    return gnn_embedding(
-        model=torch_geometric.nn.models.GAT(
-            in_channels=dim,
-            hidden_channels=dim_h,
-            num_layers=num_layers,
-            out_channels=dim,
-            dropout=dropout,
-        ),
-        in_channels=dim,
+    return GAT(
         network=network,
-        negative_edge_sampler=gnn_tools.train.NegativeEdgeSampler["degreeBiased"],
-        epochs=epochs,
+        dim=dim,
+        num_layers=num_layers,
         device=device,
+        dim_h=dim_h,
+        epochs=epochs,
+        dropout=dropout,
         memberships=memberships,
+        negative_edge_sampler=negative_edge_sampler,
         **params,
     )

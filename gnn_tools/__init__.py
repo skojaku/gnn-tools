@@ -9,3 +9,4 @@ from gnn_tools.train import *
 from gnn_tools.metrics import *
 from gnn_tools.samplers import *
 from gnn_tools.utils import *
+from gnn_tools.LinkPredictionDataset import *

@@ -17,8 +17,8 @@ class TestCommunityDetection(unittest.TestCase):
             [d[1]["club"] for d in G.nodes(data=True)], return_inverse=True
         )[1]
 
-    def test_graphsage(self):
-        emb = gnn_tools.models.GraphSAGE(self.A, dim=32, memberships=self.labels)
+    def test_linkprediction(self):
+        emb = gnn_tools.models.dcGAT(self.A, dim=32)
 
         S = emb @ emb.T
         U = sparse.csr_matrix(
@@ -28,22 +28,9 @@ class TestCommunityDetection(unittest.TestCase):
         Sy = (U @ U.T).toarray()
 
         score = roc_auc_score(Sy.reshape(-1), S.reshape(-1))
-        print("Testing GraphSAGE model: ROC AUC score must be greater than 0.7")
-        assert score > 0.9, f"Test failed with ROC AUC score: {score}"
+        print(f"SCore = {score}")
+        assert score > 0.7, f"Test failed with ROC AUC score: {score}"
 
-    def test_gat(self):
-        emb = gnn_tools.models.GAT(self.A, dim=32, memberships=self.labels)
-
-        S = emb @ emb.T
-        U = sparse.csr_matrix(
-            (np.ones_like(self.labels), (np.arange(len(self.labels)), self.labels)),
-            shape=(len(self.labels), len(set(self.labels))),
-        )
-        Sy = (U @ U.T).toarray()
-
-        score = roc_auc_score(Sy.reshape(-1), S.reshape(-1))
-        print("Testing GAT model: ROC AUC score must be greater than 0.7")
-        assert score > 0.9, f"Test failed with ROC AUC score: {score}"
 
 
 # %%

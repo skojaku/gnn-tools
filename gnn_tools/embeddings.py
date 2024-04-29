@@ -218,11 +218,8 @@ class ModularitySpectralEmbedding(NodeEmbeddings):
         return self
 
     def update_embedding(self, dim):
-        s, u = sparse.linalg.eigs(self.A, k=dim + 1, which="LR")
+        s, u = self.powerIteratedModularityEmbedding(self.A, k=dim)
         s, u = np.real(s), np.real(u)
-        s = s[1:]
-        u = u[:, 1:]
-
         if self.reconstruction_vector:
             is_positive = s > 0
             u[:, ~is_positive] = 0
@@ -231,6 +228,53 @@ class ModularitySpectralEmbedding(NodeEmbeddings):
         else:
             self.in_vec = u @ sparse.diags(np.sqrt(np.abs(s)))
         self.out_vec = u
+
+    def shave_embedding(self, emb, K):
+        # Column normalize emb
+        # nemb = emb / np.maximum(1e-12, np.linalg.norm(emb, axis=0))
+        nemb = emb / np.maximum(
+            1e-12, np.array(np.linalg.norm(emb, axis=0)).reshape(-1)
+        )
+
+        # Compute the modularity eigenvalues
+        vals = np.diag(nemb.T @ self.A @ nemb) - np.sum(
+            np.power(nemb.T @ self.deg, 2)
+        ) / np.sum(self.deg)
+
+        # Shave
+        order = np.argsort(-vals)
+        shaved_emb = emb[:, order[: (K - 1)]]
+        return shaved_emb
+
+    def powerIteratedModularityEmbedding(self, net, k, n_iter=100, eps=1e-12):
+        deg = np.array(net.sum(axis=1)).flatten()
+
+        double_m = np.sum(deg)
+
+        n_nodes = len(deg)
+        eigenvecs = np.zeros((n_nodes, k))
+        eigenvals = np.zeros(k)
+
+        for ell in range(k):
+            b = np.random.randn(len(deg))
+            b /= np.linalg.norm(b)
+            b_prev = b.copy()
+            for it in range(n_iter):
+                b = (
+                    net @ b / double_m
+                    - deg * (deg.T @ b) / double_m**2
+                    - np.einsum("ij,j->ij", eigenvecs, eigenvals) @ (eigenvecs.T @ b)
+                )
+                b /= np.linalg.norm(b)
+                if (
+                    np.mean(np.abs(b - b_prev) / np.maximum(1e-12, np.abs(b_prev)))
+                    < eps
+                ):
+                    break
+                b_prev = b.copy()
+            eigenvecs[:, ell] = b.copy()
+            eigenvals[ell] = b.T @ net @ b / double_m - (b.T @ deg) ** 2 / double_m**2
+        return eigenvals, eigenvecs
 
 
 class LinearizedNode2Vec(NodeEmbeddings):
