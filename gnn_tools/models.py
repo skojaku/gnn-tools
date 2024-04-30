@@ -434,6 +434,7 @@ def dcGCN(
     epochs=500,
     dropout=0.2,
     memberships=None,
+    **params
 ):
     return gnn_embedding(
         model=torch_geometric.nn.models.GCN(
