@@ -18,7 +18,7 @@ class TestCommunityDetection(unittest.TestCase):
         )[1]
 
     def test_linkprediction(self):
-        emb = gnn_tools.models.dcGAT(self.A, dim=32)
+        emb = gnn_tools.models.GAT(self.A, dim=32)
 
         S = emb @ emb.T
         U = sparse.csr_matrix(

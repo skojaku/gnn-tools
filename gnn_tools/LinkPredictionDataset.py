@@ -93,7 +93,8 @@ class LinkPredictionDataset:
         test_src, test_trg = self.splitter.test_edges_
 
         neg_src, neg_trg = self.get_negative_edges(
-            negative_edge_sampler=negative_edge_sampler, **negative_edge_sampler_params
+            negative_edge_sampler=negative_edge_sampler,
+            **negative_edge_sampler_params
         )
 
         self.target_edge_table = pd.DataFrame(
@@ -129,17 +130,12 @@ class LinkPredictionDataset:
                 **params
             )
             negative_edge_sampler.fit(self.train_net)
-        test_src, test_trg = self.splitter.test_edges_
-        source_nodes = np.random.choice(
-            np.concatenate([test_src, test_trg]), size=len(test_src)
-        )
 
+        test_src, test_trg = self.splitter.test_edges_
         n_test_edges = int(len(test_src))
         neg_src, neg_trg = [], []
         for _ in range(self.negatives_per_positive):
-            _neg_src, _neg_trg = negative_edge_sampler.sampling(
-                source_nodes=source_nodes, size=n_test_edges
-            )
+            _neg_src, _neg_trg = negative_edge_sampler.sampling(size=n_test_edges, test_edges=(test_src, test_trg))
             neg_src.append(_neg_src)
             neg_trg.append(_neg_trg)
         neg_src, neg_trg = np.concatenate(neg_src), np.concatenate(neg_trg)
@@ -214,7 +210,7 @@ class NegativeEdgeSampler:
         self.edge_indices = pairing(src, trg)
         self.sampler.fit(net)
 
-    def sampling(self, size=None, source_nodes=None):
+    def sampling(self, size=None, source_nodes=None, test_edges=None):
         """
         Generates a dataset for link prediction by sampling positive and negative edges using the specified negative edge sampler.
 
@@ -246,6 +242,9 @@ class NegativeEdgeSampler:
         # Repeat until n_test_edges number of negative edges are sampled.
         n_iters = 0
         max_iters = 30
+        if test_edges is not None:
+            test_edges = pairing(*test_edges)
+
         while (n_sampled < size) and (n_iters < max_iters):
             # Sample negative edges based on SBM sampler
             _neg_src, _neg_trg = self.sampler.sampling(center_nodes=source_nodes)
@@ -261,6 +260,11 @@ class NegativeEdgeSampler:
             # Remove _neg_edge_indices duplicated in self.edge_indices
             positivePairs = np.isin(_neg_edge_indices, self.edge_indices)
             reject[positivePairs] = True
+
+            # Remove test edges from negative edges
+            if test_edges is not None:
+                positivePairs = np.isin(_neg_edge_indices, test_edges)
+                reject[positivePairs] = True
 
             # Keep non-self-loops
             reject[_neg_src == _neg_trg] = True
