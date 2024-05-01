@@ -317,7 +317,7 @@ def PNA(
                 "inverse_linear",
             ],
             deg=torch.FloatTensor(
-                np.bincount(np.array(network.sum(axis=0)).reshape(-1))
+                np.bincount(np.array(network.sum(axis=0)).reshape(-1).astype(int))
             ),
             dropout=dropout,
         ),
