@@ -242,7 +242,7 @@ def GCN(
 ):
     return gnn_embedding(
         model=torch_geometric.nn.models.GCN(
-            in_channels=dim,
+            in_channels=-1,
             hidden_channels=dim_h,
             num_layers=num_layers,
             out_channels=dim,
@@ -346,7 +346,7 @@ def EdgeCNN(
 ):
     return gnn_embedding(
         model=torch_geometric.nn.models.EdgeCNN(
-            in_channels=dim,
+            in_channels=-1,
             hidden_channels=dim_h,
             num_layers=num_layers,
             out_channels=dim,
@@ -377,7 +377,7 @@ def GraphSAGE(
 ):
     return gnn_embedding(
         model=torch_geometric.nn.models.GraphSAGE(
-            in_channels=dim,
+            in_channels=-1,
             hidden_channels=dim_h,
             num_layers=num_layers,
             out_channels=dim,
@@ -408,7 +408,7 @@ def GAT(
 ):
     return gnn_embedding(
         model=torch_geometric.nn.models.GAT(
-            in_channels=dim,
+            in_channels=-1,
             hidden_channels=dim_h,
             num_layers=num_layers,
             out_channels=dim,
@@ -434,22 +434,19 @@ def dcGCN(
     epochs=500,
     dropout=0.2,
     memberships=None,
+    negative_edge_sampler="degreeBiased",
     **params
 ):
-    return gnn_embedding(
-        model=torch_geometric.nn.models.GCN(
-            in_channels=dim,
-            hidden_channels=dim_h,
-            num_layers=num_layers,
-            out_channels=dim,
-            dropout=dropout,
-        ),
-        in_channels=dim,
+    return GCN(
         network=network,
-        negative_edge_sampler="degreeBiased",
-        epochs=epochs,
+        dim=dim,
+        num_layers=num_layers,
         device=device,
+        dim_h=dim_h,
+        epochs=epochs,
+        dropout=dropout,
         memberships=memberships,
+        negative_edge_sampler=negative_edge_sampler,
         **params,
     )
 

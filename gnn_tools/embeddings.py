@@ -615,6 +615,8 @@ class SpectralGraphTransformation(NodeEmbeddings):
         train_edges_ = utils.depairing(train_edge_set)
         return train_edges_, test_edges_
 
+from sklearn.decomposition import TruncatedSVD
+from sklearn.cluster import KMeans
 
 class SBMEmbedding(NodeEmbeddings):
     def __init__(self, min_com_size=5):
@@ -633,13 +635,8 @@ class SBMEmbedding(NodeEmbeddings):
 
         n_nodes = self.net.shape[0]
         K = np.minimum(dim, int(n_nodes / self.min_com_size))
-        state = gt.minimize_blockmodel_dl(
-            g,
-            state_args={"B_min": K, "B_max": K},
-            multilevel_mcmc_args={"B_max": K, "B_min": K},
-        )
-        b = state.get_blocks()
-        cids = np.unique(np.array(b.a), return_inverse=True)[1]
+        cids = self.find_blocks_by_sbm(self.net, K)
+        cids = np.unique(np.array(cids), return_inverse=True)[1]
         n_nodes = len(cids)
         U = sparse.csr_matrix(
             (np.ones_like(cids), (np.arange(len(cids)), cids)), shape=(n_nodes, K)
@@ -659,3 +656,46 @@ class SBMEmbedding(NodeEmbeddings):
         u = U @ u
         self.in_vec = np.einsum("ij,i->ij", u, outdeg)
         self.out_vec = np.einsum("ij,i->ij", u, indeg)
+
+    def find_blocks_by_sbm(self, A, K, directed=False):
+        """Jiashun Jin. Fast community detection by SCORE.
+
+        :param A: scipy sparse matrix
+        :type A: sparse.csr_matrix
+        :param K: number of communities
+        :type K: int
+        :param directed: whether to cluster directed or undirected, defaults to False
+        :type directed: bool, optional
+        :return: [description]
+        :rtype: [type]
+        """
+
+        if K >= (A.shape[0] - 1):
+            cids = np.arange(A.shape[0])
+            return cids
+
+        svd = TruncatedSVD(n_components=K).fit(A)
+        u = svd.components_.T
+        v = svd.transform(A)
+        v = np.einsum("ij,j->ij", v, 1.0/np.linalg.norm(v, axis = 0))
+
+        #u, s, v = utils.rSVD(A, dim=K)
+        u = np.ascontiguousarray(u, dtype=np.float32)
+        if directed:
+            v = np.ascontiguousarray(v.T, dtype=np.float32)
+            u = np.hstack([u, v])
+        norm = np.linalg.norm(u, axis=1)
+        denom = 1 / np.maximum(norm, 1e-5)
+        denom[np.isclose(norm, 0)] = 0
+
+        u = np.einsum("ij,i->ij", u, denom)
+
+        if (u.shape[0] / K) < 10:
+            niter = 1
+        else:
+            niter = 10
+        km = KMeans(n_clusters = K)
+        km.fit(u)
+        cids = km.labels_
+
+        return np.array(cids).reshape(-1)

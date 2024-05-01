@@ -136,15 +136,24 @@ def link_prediction_task(
                 ),
                 shape=(_n_nodes, _n_nodes),
             )
-            test_net, test_edges = (
-                LinkPredictionDataset(
-                    testEdgeFraction=0.15,
-                    negative_edge_sampler=negative_edge_sampler,
-                    duplicated_negative_edges=True,
-                )
-                .fit(_net)
-                .transform()
-            )
+
+            sampled = False
+            for testEdgeFraction in [0.15, 0.10, 0.05]:
+                try:
+                    test_net, test_edges = (
+                        LinkPredictionDataset(
+                            testEdgeFraction=testEdgeFraction,
+                            negative_edge_sampler=negative_edge_sampler,
+                            duplicated_negative_edges=True,
+                        )
+                        .fit(_net)
+                        .transform()
+                    )
+                    sampled = True
+                except:
+                    continue
+            if sampled == False:
+                continue
 
             src, trg, _ = sparse.find(test_net)
             _train_edge_index = torch.LongTensor(np.vstack([src, trg])).to(device)
