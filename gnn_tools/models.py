@@ -289,46 +289,46 @@ def GIN(
     )
 
 
-@embedding_model
-def PNA(
-    network,
-    dim,
-    device=None,
-    dim_h=64,
-    num_layers=2,
-    epochs=500,
-    dropout=0.2,
-    memberships=None,
-    negative_edge_sampler="uniform",
-    **params
-):
-    return gnn_embedding(
-        model=torch_geometric.nn.models.PNA(
-            in_channels=dim,
-            hidden_channels=dim_h,
-            num_layers=num_layers,
-            out_channels=dim,
-            aggregators=["sum", "mean", "min", "max", "max", "var", "std"],
-            scalers=[
-                "identity",
-                "amplification",
-                "attenuation",
-                "linear",
-                "inverse_linear",
-            ],
-            deg=torch.FloatTensor(
-                np.bincount(np.array(network.sum(axis=0)).reshape(-1).astype(int))
-            ),
-            dropout=dropout,
-        ),
-        in_channels=dim,
-        network=network,
-        negative_edge_sampler=negative_edge_sampler,
-        device=device,
-        epochs=epochs,
-        memberships=memberships,
-        **params,
-    )
+#@embedding_model
+#def PNA(
+#    network,
+#    dim,
+#    device=None,
+#    dim_h=64,
+#    num_layers=2,
+#    epochs=500,
+#    dropout=0.2,
+#    memberships=None,
+#    negative_edge_sampler="uniform",
+#    **params
+#):
+#    return gnn_embedding(
+#        model=torch_geometric.nn.models.PNA(
+#            in_channels=dim,
+#            hidden_channels=dim_h,
+#            num_layers=num_layers,
+#            out_channels=dim,
+#            aggregators=["sum", "mean", "min", "max", "max", "var", "std"],
+#            scalers=[
+#                "identity",
+#                "amplification",
+#                "attenuation",
+#                "linear",
+#                "inverse_linear",
+#            ],
+#            deg=torch.FloatTensor(
+#                np.bincount(np.array(network.sum(axis=0)).reshape(-1).astype(int))
+#            ),
+#            dropout=dropout,
+#        ),
+#        in_channels=dim,
+#        network=network,
+#        negative_edge_sampler=negative_edge_sampler,
+#        device=device,
+#        epochs=epochs,
+#        memberships=memberships,
+#        **params,
+#    )
 
 
 @embedding_model
