@@ -167,13 +167,12 @@ class LaplacianEigenMap(NodeEmbeddings):
 
     def update_embedding(self, dim):
         if self.reconstruction_vector:
-            s, u = sparse.linalg.eigs(self.L, k=dim, which="LR")
-            s, u = np.real(s), np.real(u)
+            u, s = truncated_eigs(self.L, dim)
             order = np.argsort(s)[::-1]
             self.in_vec = u[:, order]
             self.out_vec = u[:, order]
         else:
-            s, u = sparse.linalg.eigs(self.L, k=dim + 1, which="LR")
+            u, s = truncated_eigs(self.L, dim + 1)
             s, u = np.real(s), np.real(u)
             order = np.argsort(-s)[1:]
             s, u = s[order], u[:, order]
@@ -196,10 +195,7 @@ class AdjacencySpectralEmbedding(NodeEmbeddings):
         return self
 
     def update_embedding(self, dim):
-        svd = TruncatedSVD(n_components=dim, n_iter=7, random_state=42)
-        u = svd.fit_transform(self.A)
-        s = svd.singular_values_
-        # u, s, v = rsvd.rSVD(self.A, dim=dim)
+        u, s = truncated_eigs(self.A, dim)
         self.in_vec = u @ sparse.diags(s)
 
 
@@ -296,11 +292,7 @@ class LinearizedNode2Vec(NodeEmbeddings):
         Dinvsqrt = sparse.diags(1 / np.sqrt(np.maximum(1, self.deg)))
         Psym = Dinvsqrt @ self.A @ Dinvsqrt
 
-        # svd = TruncatedSVD(n_components=dim + 1, n_iter=7, random_state=42)
-        # u = svd.fit_transform(Psym)
-        # s = svd.singular_values_
-        s, u = sparse.linalg.eigs(Psym, k=dim + 1, which="LR")
-        s, u = np.real(s), np.real(u)
+        u, s = truncated_eigs(Psym, dim)
         order = np.argsort(-s)
         s, u = s[order], u[:, order]
 
@@ -340,7 +332,7 @@ class NonBacktrackingSpectralEmbedding(NodeEmbeddings):
         B = sparse.bmat([[Z, D - I], [-I, self.A]], format="csr")
 
         if self.auto_dim is False:
-            s, v = sparse.linalg.eigs(B, k=dim, tol=1e-4)
+            v, s = truncated_eigs(B, dim)
             s, v = np.real(s), np.real(v)
             order = np.argsort(-np.abs(s))
             s, v = s[order], v[:, order]
@@ -357,7 +349,7 @@ class NonBacktrackingSpectralEmbedding(NodeEmbeddings):
             dim = int(self.C * np.sqrt(N))
             dim = np.minimum(dim, N - 1)
 
-            s, v = sparse.linalg.eigs(B, k=dim + 1, tol=1e-4)
+            v, s = truncated_eigs(B, dim + 1)
 
             c = int(self.A.sum() / N)
             s, v = s[np.abs(s) > c], v[:, np.abs(s) > c]
@@ -553,12 +545,11 @@ class SpectralGraphTransformation(NodeEmbeddings):
         None
         """
 
-        which = "LR"
         if self.kernel_matrix == "laplacian":
-            which = "SR"
-
-        s_train, u = sparse.linalg.eigs(self.Gkernel_train, k=dim, which=which)
-        s_test = np.diag(u.T @ self.Gkernel @ u)
+            s_train, u = sparse.linalg.eigs(self.Gkernel_train, k=dim, which="SR")
+        else:
+            u, s_train = truncated_eigs(self.Gkernel_train, dim)
+        s_test = np.array(np.sum((self.Gkernel @ u ) * u, axis = 0)).reshape(-1)
         s_test, u, s_train = np.real(s_test), np.real(u), np.real(s_train)
         s_train = s_train / np.max(np.abs(s_train))
         s_test = s_test / np.max(np.abs(s_test))
@@ -699,3 +690,11 @@ class SBMEmbedding(NodeEmbeddings):
         cids = km.labels_
 
         return np.array(cids).reshape(-1)
+
+def truncated_eigs(M, dim):
+    svd = TruncatedSVD(n_components=dim)
+    svd = svd.fit(M)
+    u = svd.components_.T
+    s = np.array(np.sum( (M @ u ) * u, axis = 0)).reshape(-1)
+    s, u = np.real(s), np.real(u)
+    return u, s

@@ -16,34 +16,22 @@ class TestCommunityDetection(unittest.TestCase):
         self.labels = np.unique(
             [d[1]["club"] for d in G.nodes(data=True)], return_inverse=True
         )[1]
-    
-    def test_dcSBM_training(self):
-        emb = gnn_tools.models.dcSBM(self.A, dim=30)
 
-        S = emb @ emb.T
-        U = sparse.csr_matrix(
-            (np.ones_like(self.labels), (np.arange(len(self.labels)), self.labels)),
-            shape=(len(self.labels), len(set(self.labels))),
-        )
-        Sy = (U @ U.T).toarray()
+    def test_embedding_model(self):
+        for model_name in gnn_tools.embedding_models.keys():
+            emb = gnn_tools.embedding_models[model_name](self.A, dim=16)
 
-        score = roc_auc_score(Sy.reshape(-1), S.reshape(-1))
-        print(f"SCore = {score}")
-        assert score > 0.5, f"Test failed with ROC AUC score: {score}"
+            S = emb @ emb.T
+            U = sparse.csr_matrix(
+                (np.ones_like(self.labels), (np.arange(len(self.labels)), self.labels)),
+                shape=(len(self.labels), len(set(self.labels))),
+            )
+            Sy = (U @ U.T).toarray()
 
-    def test_gnn_training(self):
-        emb = gnn_tools.models.GraphSAGE(self.A, dim=32, epochs = 10)
+            score = roc_auc_score(Sy.reshape(-1), S.reshape(-1))
+            print(f"{model_name}: {score}")
+            assert score > 0.5, f"test failed for {model_name}. ROC AUC score must be >0.5: {score}"
 
-        S = emb @ emb.T
-        U = sparse.csr_matrix(
-            (np.ones_like(self.labels), (np.arange(len(self.labels)), self.labels)),
-            shape=(len(self.labels), len(set(self.labels))),
-        )
-        Sy = (U @ U.T).toarray()
-
-        score = roc_auc_score(Sy.reshape(-1), S.reshape(-1))
-        print(f"SCore = {score}")
-        assert score > 0.5, f"Test failed with ROC AUC score: {score}"
 
     def test_link_prediction(self):
         dataset = gnn_tools.LinkPredictionDataset(testEdgeFraction = 0.25, negative_edge_sampler = "degreeBiased")
@@ -74,44 +62,3 @@ class TestCommunityDetection(unittest.TestCase):
 
         # test_net and train_net must be disjoint
         assert np.all((test_net.multiply(train_net)).data == 0)
-
-
-
-
-
-
-
-# %%
-# import networkx as nx
-# import gnn_tools
-# import numpy as np
-# from scipy import sparse
-# from sklearn.metrics import roc_auc_score
-#
-# G = nx.karate_club_graph()
-# A = nx.adjacency_matrix(G)
-# A = A
-# labels = np.unique([d[1]["club"] for d in G.nodes(data=True)], return_inverse=True)[1]
-#
-# emb = gnn_tools.models.GAT(A, dim=32, memberships=labels, lr=4e-4)
-#
-# S = emb @ emb.T
-# U = sparse.csr_matrix(
-#    (np.ones_like(labels), (np.arange(len(labels)), labels)),
-#    shape=(len(labels), len(set(labels))),
-# )
-# Sy = (U @ U.T).toarray()
-#
-# score = roc_auc_score(Sy.reshape(-1), S.reshape(-1))
-# print(score)
-## %%
-# import seaborn as sns
-# from sklearn.decomposition import PCA
-#
-# xy = PCA(n_components=2).fit_transform(emb)
-# sns.scatterplot(xy[:, 0], xy[:, 1], hue=labels)
-#
-## %%
-# sns.heatmap(S)
-## %%
-#
