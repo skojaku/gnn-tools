@@ -39,7 +39,7 @@ def link_prediction_task(
     negative_edge_sampler=None,
     batch_size: int = 2500,
     resolution=2.0,
-    lr=1e-3,
+    lr=1e-2,
 ) -> torch.nn.Module:
     """
     Train a PyTorch model on a given graph dataset using minibatch stochastic gradient descent with negative sampling.
@@ -555,6 +555,8 @@ class ModularityClusterData(torch.utils.data.Dataset):
         )
         g = ig.Graph(zip(src.tolist(), trg.tolist()))
         memberships = g.community_leiden("modularity", resolution=resolution).membership
+        memberships = np.unique(memberships, return_inverse=True)[1]
+
         cluster = torch.tensor(memberships)
         return cluster
 
