@@ -556,7 +556,20 @@ class ModularityClusterData(torch.utils.data.Dataset):
         g = ig.Graph(zip(src.tolist(), trg.tolist()))
         memberships = g.community_leiden("modularity", resolution=resolution).membership
         memberships = np.unique(memberships, return_inverse=True)[1]
+        n_coms = len(np.unique(memberships))
 
+        net = sparse.csr_matrix(
+            (np.ones_like(src), (src.numpy(), trg.numpy())), shape=(num_nodes, num_nodes)
+        )
+        net = net + net.T
+        U = sparse.csr_matrix((np.ones_like(memberships), (np.arange(num_nodes), memberships)), shape=(num_nodes, n_coms))
+        whithin_com_edges =  ((net @ U).multiply(U)).sum(axis=1).A1
+
+        min_edges = 3
+        merge = np.where(whithin_com_edges< min_edges)[0]
+        non_merge = np.where(whithin_com_edges >= min_edges)[0]
+        merge_indices =np.isin(memberships, merge)
+        memberships[merge_indices] = np.random.choice(non_merge, size = np.sum(merge_indices), replace=True)
         cluster = torch.tensor(memberships)
         return cluster
 
@@ -656,3 +669,5 @@ class ModularityClusterData(torch.utils.data.Dataset):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.num_parts})"
+
+# %%
