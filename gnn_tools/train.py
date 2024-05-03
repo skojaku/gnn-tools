@@ -349,7 +349,7 @@ def sample_community_membership_pairs(membership, n_samples):
     n_nodes = len(membership)
     n_coms = len(coms)
 
-    n_samples_com = np.bincount(np.random.randint(0, n_coms, n_samples))
+    n_samples_com = np.bincount(np.random.randint(0, n_coms, n_samples), minlength = n_coms)
 
     pos_pairs = set()
     for i in range(n_coms):
