@@ -38,8 +38,9 @@ def link_prediction_task(
     feature_vec_dim: int = 64,
     negative_edge_sampler=None,
     batch_size: int = 2500,
-    resolution=2.0,
+    resolution=1.0,
     lr=1e-2,
+    clustering = "modularity",
 ) -> torch.nn.Module:
     """
     Train a PyTorch model on a given graph dataset using minibatch stochastic gradient descent with negative sampling.
@@ -83,10 +84,15 @@ def link_prediction_task(
 
     # Set up minibatching for the data using a clustering algorithm
     num_sub_batches = 5
-    batch_size = np.minimum(n_nodes, batch_size)
-    cluster_data = ModularityClusterData(
-        data, resolution=resolution
-    )  # 1. Create subgraphs.
+    if clustering == "modularity":
+        cluster_data = ModularityClusterData(
+            data, resolution=resolution
+        )  # 1. Create subgraphs.
+    elif clustering == "metis":
+        sub_batch_size = np.minimum(n_nodes, batch_size / num_sub_batches)
+        num_parts = int(np.maximum(1, int(np.floor(n_nodes / sub_batch_size)) * resolution))
+        cluster_data = ClusterData(data, num_parts=num_parts)
+
     train_loader = ClusterLoader(
         cluster_data, batch_size=num_sub_batches, shuffle=False
     )  # 2. Stochastic partioning scheme.
@@ -136,6 +142,8 @@ def link_prediction_task(
                 ),
                 shape=(_n_nodes, _n_nodes),
             )
+            _net = _net + _net.T
+            _net.data = _net.data * 0.0 + 1.0
 
             sampled = False
             for testEdgeFraction in [0.15, 0.10, 0.05]:
@@ -164,15 +172,9 @@ def link_prediction_task(
             )
 
             x = x.to(device)
-            # neg_edge_index = neg_edge_index.to(device)
 
             # Negative edge injection
             z = model(x, _train_edge_index)
-            # "            neg_edge_index = negative_edge_sampler(
-            # "                edge_index=_edge_index,
-            # "                num_nodes=x.shape[0],
-            # "                num_neg_samples=2,
-            # "            )
 
             # Zero-out gradient, compute embeddings and logits, and calculate loss
             score = (z[src_test, :] * z[trg_test, :]).sum(dim=1)
@@ -184,9 +186,9 @@ def link_prediction_task(
             with torch.no_grad():
                 ave_loss += loss.item()
                 n_iter += 1
+            _ave_loss = ave_loss / n_iter
+            pbar.set_description(f"loss={_ave_loss:.3f} iter/epoch={n_iter}, n_nodes = {_n_nodes}")
         pbar.update(1)
-        ave_loss /= n_iter
-        pbar.set_description(f"loss={ave_loss:.3f} iter/epoch={n_iter}")
 
     # Set the model in evaluation mode and return
     model.eval()
@@ -233,8 +235,10 @@ def community_detection_task(
     feature_vec_dim: int = 64,
     negative_edge_sampler=None,
     batch_size: int = 2500,
+    #batch_size: int = 2500,
     resolution=2.0,
     lr=1e-3,
+    clustering = "modularity",
 ) -> torch.nn.Module:
     n_nodes = net.shape[0]
 
@@ -251,13 +255,17 @@ def community_detection_task(
     data = Data(edge_index=edge_index, x=feature_vec, membership=memberships)
 
     # Set up minibatching for the data using a clustering algorithm
-    num_sub_batches = 5
-    batch_size = np.minimum(n_nodes, batch_size)
-    num_parts = np.maximum(2, int(n_nodes / batch_size))
-    # cluster_data = ClusterData(data, num_parts=num_parts)  # 1. Create subgraphs.
-    cluster_data = ModularityClusterData(
-        data, resolution=resolution
-    )  # 1. Create subgraphs.
+    num_sub_batches = 2
+    if clustering == "modularity":
+        cluster_data = ModularityClusterData(
+            data, resolution=resolution
+        )  # 1. Create subgraphs.
+    elif clustering == "metis":
+        sub_batch_size = np.minimum(n_nodes, batch_size / num_sub_batches)
+        num_parts = np.maximum(1, int(np.floor(n_nodes / sub_batch_size)) * resolution)
+        cluster_data = ClusterData(data, num_parts=num_parts)
+
+
     train_loader = ClusterLoader(
         cluster_data, batch_size=num_sub_batches, shuffle=False
     )  # 2. Stochastic partioning scheme.
@@ -570,6 +578,7 @@ class ModularityClusterData(torch.utils.data.Dataset):
         non_merge = np.where(whithin_com_edges >= min_edges)[0]
         merge_indices =np.isin(memberships, merge)
         memberships[merge_indices] = np.random.choice(non_merge, size = np.sum(merge_indices), replace=True)
+        memberships = np.unique(memberships, return_inverse=True)[1]
         cluster = torch.tensor(memberships)
         return cluster
 
