@@ -203,7 +203,7 @@ def community_detection_task(
     epochs: int,
     feature_vec_dim: int = 64,
     negative_edge_sampler=None,
-    batch_size: int = 2500,
+    batch_size: int = 500,
     # batch_size: int = 2500,
     resolution=2.0,
     lr=1e-3,
@@ -224,23 +224,12 @@ def community_detection_task(
     data = Data(edge_index=edge_index, x=feature_vec, membership=memberships)
 
     # Set up minibatching for the data using a clustering algorithm
-    num_sub_batches = 2
-    if clustering == "modularity":
-        cluster_data = ModularityClusterData(
-            data, resolution=resolution
-        )  # 1. Create subgraphs.
-    elif clustering == "metis":
-        sub_batch_size = np.minimum(n_nodes, batch_size / num_sub_batches)
-        num_parts = np.maximum(1, int(np.floor(n_nodes / sub_batch_size)) * resolution)
-        cluster_data = ClusterData(data, num_parts=num_parts)
-
-    train_loader = ClusterLoader(
-        cluster_data, batch_size=num_sub_batches, shuffle=False
-    )  # 2. Stochastic partioning scheme.
-
-    # Use default negative sampling function if none is specified
-    if negative_edge_sampler is None:
-        negative_edge_sampler = negative_uniform
+    train_loader = NeighborLoader(
+        data,
+        num_neighbors=[20, 10],
+        batch_size=batch_size,
+        shuffle=True,
+    )
 
     # Set the model in training mode and initialize optimizer
     model.to(device)
@@ -267,11 +256,11 @@ def community_detection_task(
         # Iterate over minibatches of the data
         ave_loss = 0
         n_iter = 0
-        for sub_data in train_loader:
+        for batch in train_loader:
             # Sample negative edges using specified or default sampler
-            _edge_index = sub_data.edge_index  # positive edges
-            x = sub_data.x
-            node_label = sub_data.membership
+            _edge_index = batch.edge_index  # positive edges
+            x = batch.x
+            node_label = batch.membership
             src_pos, trg_pos, src_neg, trg_neg = sample_community_membership_pairs(
                 membership=node_label, n_samples=_edge_index.size()[1]
             )
