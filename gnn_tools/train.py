@@ -203,10 +203,9 @@ def community_detection_task(
     epochs: int,
     feature_vec_dim: int = 64,
     negative_edge_sampler=None,
-    batch_size: int = 500,
-    # batch_size: int = 2500,
+    batch_size: int = 2500,
     resolution=2.0,
-    lr=1e-3,
+    lr=1e-2,
     clustering="modularity",
 ) -> torch.nn.Module:
     n_nodes = net.shape[0]

@@ -91,3 +91,10 @@ Below is a table of the available models in the `gnn-tools` package, along with 
 | `dcGAT`            | Degree-corrected Graph Attention Network embedding.   |
 
 These models can be used for various graph-based tasks such as link prediction, community detection, and node classification.
+
+
+### Implementation details
+
+**Mini-batch Training**: `gnn-tools` utilizes a mini-batch training technique for training graph neural networks to handle large-scale graphs that cannot fit entirely in memory. The mini-batch technique divides the graph into smaller subgraphs or batches, allowing the model to update its parameters incrementally. Specifically, we use the *neighborhood sampling* proposed in [Inductive Representation Learning on Large Graphs](https://arxiv.org/abs/1706.02216), which forms a subgraph by randomly sampling the neighbors of a small number of focal nodes.
+  - `for the link prediction tasks`, we use the edge-level neighborhood sampling. Namely, a batch is a set of edges, and we sample the neighborhoods of the the end nodes of each edge.
+  - `for the community detection tasks`, we use the node-level neighborhood sampling.
