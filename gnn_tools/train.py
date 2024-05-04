@@ -19,8 +19,9 @@ from torch import Tensor
 from torch_geometric.data import Data, ClusterData
 from torch_geometric.utils import index_sort, narrow, select, sort_edge_index
 from torch_geometric.utils.sparse import index2ptr, ptr2index
+from torch_geometric.sampler import NegativeSampling
 from torch_geometric.data import Data
-from torch_geometric.loader import ClusterLoader
+from torch_geometric.loader import ClusterLoader, NeighborLoader, LinkNeighborLoader
 import GPUtil
 from adabelief_pytorch import AdaBelief
 from gnn_tools.LinkPredictionDataset import LinkPredictionDataset
@@ -40,7 +41,7 @@ def link_prediction_task(
     batch_size: int = 2500,
     resolution=1.0,
     lr=1e-2,
-    clustering = "modularity",
+    clustering="modularity",
 ) -> torch.nn.Module:
     """
     Train a PyTorch model on a given graph dataset using minibatch stochastic gradient descent with negative sampling.
@@ -82,24 +83,23 @@ def link_prediction_task(
     # Create PyTorch data object with features and edge list
     data = Data(edge_index=edge_index, x=feature_vec)
 
-    # Set up minibatching for the data using a clustering algorithm
-    num_sub_batches = 5
-    if clustering == "modularity":
-        cluster_data = ModularityClusterData(
-            data, resolution=resolution
-        )  # 1. Create subgraphs.
-    elif clustering == "metis":
-        sub_batch_size = np.minimum(n_nodes, batch_size / num_sub_batches)
-        num_parts = int(np.maximum(1, int(np.floor(n_nodes / sub_batch_size)) * resolution))
-        cluster_data = ClusterData(data, num_parts=num_parts)
-
-    train_loader = ClusterLoader(
-        cluster_data, batch_size=num_sub_batches, shuffle=False
-    )  # 2. Stochastic partioning scheme.
-
     # Use default negative sampling function if none is specified
     if negative_edge_sampler is None:
         negative_edge_sampler = "uniform"
+
+    if negative_edge_sampler == "degreeBiased":
+        neg_sampler = BiasedNegativeSampling(mode="binary", net=net)
+    elif negative_edge_sampler == "uniform":
+        neg_sampler = NegativeSampling(mode="binary")
+
+    train_loader = LinkNeighborLoader(
+        data,
+        num_neighbors=[20, 10],
+        neg_sampling=neg_sampler,
+        shuffle=True,
+        batch_size=batch_size,
+        edge_label_index=data.edge_index,
+    )
 
     # Set the model in training mode and initialize optimizer
     model.to(device)
@@ -126,59 +126,26 @@ def link_prediction_task(
         # Iterate over minibatches of the data
         ave_loss = 0
         n_iter = 0
-        for sub_data in train_loader:
+        for batch in train_loader:
             optimizer.zero_grad()
 
             # Sample negative edges using specified or default sampler
-            _edge_index = sub_data.edge_index  # positive edges
-            x = sub_data.x
-
-            # To scipy sparse matrix
+            _edge_index = batch.edge_index  # positive edges
+            x = batch.x
+            edge_label_index = batch.edge_label_index
+            edge_label = batch.edge_label
             _n_nodes = x.size()[0]
-            _net = sparse.csr_matrix(
-                (
-                    np.ones_like(_edge_index[0]),
-                    (_edge_index[0].numpy(), _edge_index[1].numpy()),
-                ),
-                shape=(_n_nodes, _n_nodes),
-            )
-            _net = _net + _net.T
-            _net.data = _net.data * 0.0 + 1.0
-
-            sampled = False
-            for testEdgeFraction in [0.15, 0.10, 0.05]:
-                try:
-                    test_net, test_edges = (
-                        LinkPredictionDataset(
-                            testEdgeFraction=testEdgeFraction,
-                            negative_edge_sampler=negative_edge_sampler,
-                            duplicated_negative_edges=True,
-                        )
-                        .fit(_net)
-                        .transform()
-                    )
-                    sampled = True
-                except:
-                    continue
-            if sampled == False:
-                continue
-
-            src, trg, _ = sparse.find(test_net)
-            _train_edge_index = torch.LongTensor(np.vstack([src, trg])).to(device)
-            src_test, trg_test, y = (
-                test_edges["src"],
-                test_edges["trg"],
-                test_edges["isPositiveEdge"],
-            )
-
-            x = x.to(device)
-
             # Negative edge injection
-            z = model(x, _train_edge_index)
+            z = model(
+                x.to(device),
+                _edge_index.to(device),
+            )
 
             # Zero-out gradient, compute embeddings and logits, and calculate loss
-            score = (z[src_test, :] * z[trg_test, :]).sum(dim=1)
-            loss = criterion(score, torch.FloatTensor(y).to(device))
+            score = (z[edge_label_index[0, :], :] * z[edge_label_index[1, :], :]).sum(
+                dim=1
+            )
+            loss = criterion(score, edge_label.to(device))
 
             # Compute gradients and update parameters of the model
             loss.backward()
@@ -187,7 +154,9 @@ def link_prediction_task(
                 ave_loss += loss.item()
                 n_iter += 1
             _ave_loss = ave_loss / n_iter
-            pbar.set_description(f"loss={_ave_loss:.3f} iter/epoch={n_iter}, n_nodes = {_n_nodes}")
+            pbar.set_description(
+                f"loss={_ave_loss:.3f} iter/epoch={n_iter}, n_nodes = {_n_nodes}"
+            )
         pbar.update(1)
 
     # Set the model in evaluation mode and return
@@ -235,10 +204,10 @@ def community_detection_task(
     feature_vec_dim: int = 64,
     negative_edge_sampler=None,
     batch_size: int = 2500,
-    #batch_size: int = 2500,
+    # batch_size: int = 2500,
     resolution=2.0,
     lr=1e-3,
-    clustering = "modularity",
+    clustering="modularity",
 ) -> torch.nn.Module:
     n_nodes = net.shape[0]
 
@@ -264,7 +233,6 @@ def community_detection_task(
         sub_batch_size = np.minimum(n_nodes, batch_size / num_sub_batches)
         num_parts = np.maximum(1, int(np.floor(n_nodes / sub_batch_size)) * resolution)
         cluster_data = ClusterData(data, num_parts=num_parts)
-
 
     train_loader = ClusterLoader(
         cluster_data, batch_size=num_sub_batches, shuffle=False
@@ -357,7 +325,9 @@ def sample_community_membership_pairs(membership, n_samples):
     n_nodes = len(membership)
     n_coms = len(coms)
 
-    n_samples_com = np.bincount(np.random.randint(0, n_coms, n_samples), minlength = n_coms)
+    n_samples_com = np.bincount(
+        np.random.randint(0, n_coms, n_samples), minlength=n_coms
+    )
 
     pos_pairs = set()
     for i in range(n_coms):
@@ -567,17 +537,23 @@ class ModularityClusterData(torch.utils.data.Dataset):
         n_coms = len(np.unique(memberships))
 
         net = sparse.csr_matrix(
-            (np.ones_like(src), (src.numpy(), trg.numpy())), shape=(num_nodes, num_nodes)
+            (np.ones_like(src), (src.numpy(), trg.numpy())),
+            shape=(num_nodes, num_nodes),
         )
         net = net + net.T
-        U = sparse.csr_matrix((np.ones_like(memberships), (np.arange(num_nodes), memberships)), shape=(num_nodes, n_coms))
-        whithin_com_edges =  ((net @ U).multiply(U)).sum(axis=1).A1
+        U = sparse.csr_matrix(
+            (np.ones_like(memberships), (np.arange(num_nodes), memberships)),
+            shape=(num_nodes, n_coms),
+        )
+        whithin_com_edges = ((net @ U).multiply(U)).sum(axis=1).A1
 
         min_edges = 3
-        merge = np.where(whithin_com_edges< min_edges)[0]
+        merge = np.where(whithin_com_edges < min_edges)[0]
         non_merge = np.where(whithin_com_edges >= min_edges)[0]
-        merge_indices =np.isin(memberships, merge)
-        memberships[merge_indices] = np.random.choice(non_merge, size = np.sum(merge_indices), replace=True)
+        merge_indices = np.isin(memberships, merge)
+        memberships[merge_indices] = np.random.choice(
+            non_merge, size=np.sum(merge_indices), replace=True
+        )
         memberships = np.unique(memberships, return_inverse=True)[1]
         cluster = torch.tensor(memberships)
         return cluster
@@ -679,4 +655,111 @@ class ModularityClusterData(torch.utils.data.Dataset):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.num_parts})"
 
+
 # %%
+import copy
+import math
+import warnings
+from abc import ABC
+from collections import defaultdict
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, List, Optional, Union
+
+import torch
+from torch import Tensor
+
+from torch_geometric.data import Data, FeatureStore, GraphStore, HeteroData
+from torch_geometric.sampler.utils import to_bidirectional
+from torch_geometric.typing import EdgeType, EdgeTypeStr, NodeType, OptTensor
+from torch_geometric.utils.mixin import CastMixin
+
+
+class NegativeSamplingMode(Enum):
+    # 'binary': Randomly sample negative edges in the graph.
+    binary = "binary"
+    # 'triplet': Randomly sample negative destination nodes for each positive
+    # source node.
+    triplet = "triplet"
+
+
+@dataclass
+class BiasedNegativeSampling(CastMixin):
+    r"""The negative sampling configuration of a
+    :class:`~torch_geometric.sampler.BaseSampler` when calling
+    :meth:`~torch_geometric.sampler.BaseSampler.sample_from_edges`.
+
+    Args:
+        mode (str): The negative sampling mode
+            (:obj:`"binary"` or :obj:`"triplet"`).
+            If set to :obj:`"binary"`, will randomly sample negative links
+            from the graph.
+            If set to :obj:`"triplet"`, will randomly sample negative
+            destination nodes for each positive source node.
+        amount (int or float, optional): The ratio of sampled negative edges to
+            the number of positive edges. (default: :obj:`1`)
+        weight (torch.Tensor, optional): A node-level vector determining the
+            sampling of nodes. Does not necessariyl need to sum up to one.
+            If not given, negative nodes will be sampled uniformly.
+            (default: :obj:`None`)
+    """
+
+    mode: NegativeSamplingMode
+    amount: Union[int, float] = 1
+    weight: Optional[Tensor] = None
+
+    def __init__(
+        self,
+        mode: Union[NegativeSamplingMode, str],
+        net: sparse.spmatrix,
+        amount: Union[int, float] = 1,
+        weight: Optional[Tensor] = None,
+    ):
+        self.mode = NegativeSamplingMode(mode)
+        self.amount = amount
+        self.weight = weight
+
+        if self.amount <= 0:
+            raise ValueError(
+                f"The attribute 'amount' needs to be positive "
+                f"for '{self.__class__.__name__}' "
+                f"(got {self.amount})"
+            )
+
+        if self.is_triplet():
+            if self.amount != math.ceil(self.amount):
+                raise ValueError(
+                    f"The attribute 'amount' needs to be an "
+                    f"integer for '{self.__class__.__name__}' "
+                    f"with 'triplet' negative sampling "
+                    f"(got {self.amount})."
+                )
+            self.amount = math.ceil(self.amount)
+
+        deg = np.array(net.sum(axis=1)).flatten()
+        self.p = deg / np.sum(deg)
+
+    def is_binary(self) -> bool:
+        return self.mode == NegativeSamplingMode.binary
+
+    def is_triplet(self) -> bool:
+        return self.mode == NegativeSamplingMode.triplet
+
+    def sample(self, num_samples: int, num_nodes: Optional[int] = None) -> Tensor:
+        r"""Generates :obj:`num_samples` negative samples."""
+        if self.weight is None:
+            if num_nodes is None:
+                raise ValueError(
+                    f"Cannot sample negatives in '{self.__class__.__name__}' "
+                    f"without passing the 'num_nodes' argument"
+                )
+            return torch.tensor(np.random.choice(num_nodes, num_samples, p=self.p))
+            # return torch.randint(num_nodes, (num_samples,))
+
+        if num_nodes is not None and self.weight.numel() != num_nodes:
+            raise ValueError(
+                f"The 'weight' attribute in '{self.__class__.__name__}' "
+                f"needs to match the number of nodes {num_nodes} "
+                f"(got {self.weight.numel()})"
+            )
+        return torch.multinomial(self.weight, num_samples, replacement=True)
