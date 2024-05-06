@@ -196,7 +196,7 @@ def gnn_embedding(
     device=None,
     epochs=50,
     negative_edge_sampler=None,
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     if device is None:
@@ -237,11 +237,11 @@ def GCN(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return gnn_embedding(
@@ -258,7 +258,7 @@ def GCN(
         epochs=epochs,
         device=device,
         memberships=memberships,
-        clustering = "modularity",
+        clustering="modularity",
         **params,
     )
 
@@ -270,11 +270,11 @@ def GIN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return gnn_embedding(
@@ -291,24 +291,24 @@ def GIN(
         device=device,
         epochs=epochs,
         memberships=memberships,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
 
-#@embedding_model
-#def PNA(
+# @embedding_model
+# def PNA(
 #    network,
 #    dim,
 #    device=None,
 #    dim_h=128,
 #    num_layers=2,
-#    epochs=500,
+#    epochs=250,
 #    dropout=0.2,
 #    memberships=None,
 #    negative_edge_sampler="uniform",
 #    **params
-#):
+# ):
 #    return gnn_embedding(
 #        model=torch_geometric.nn.models.PNA(
 #            in_channels=dim,
@@ -345,11 +345,11 @@ def EdgeCNN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return gnn_embedding(
@@ -366,7 +366,7 @@ def EdgeCNN(
         device=device,
         epochs=epochs,
         memberships=memberships,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
@@ -378,11 +378,11 @@ def GraphSAGE(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return gnn_embedding(
@@ -399,7 +399,7 @@ def GraphSAGE(
         device=device,
         epochs=epochs,
         memberships=memberships,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
@@ -411,11 +411,11 @@ def GAT(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return gnn_embedding(
@@ -432,7 +432,7 @@ def GAT(
         negative_edge_sampler=negative_edge_sampler,
         epochs=epochs,
         memberships=memberships,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
@@ -444,11 +444,11 @@ def dcGCN(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return GCN(
@@ -461,7 +461,7 @@ def dcGCN(
         dropout=dropout,
         memberships=memberships,
         negative_edge_sampler=negative_edge_sampler,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
@@ -473,11 +473,11 @@ def dcGIN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return GIN(
@@ -490,7 +490,7 @@ def dcGIN(
         dropout=dropout,
         memberships=memberships,
         negative_edge_sampler=negative_edge_sampler,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
@@ -502,11 +502,11 @@ def dcEdgeCNN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return EdgeCNN(
@@ -519,7 +519,7 @@ def dcEdgeCNN(
         dropout=dropout,
         memberships=memberships,
         negative_edge_sampler=negative_edge_sampler,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
@@ -531,11 +531,11 @@ def dcGraphSAGE(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return GraphSAGE(
@@ -548,7 +548,7 @@ def dcGraphSAGE(
         dropout=dropout,
         memberships=memberships,
         negative_edge_sampler=negative_edge_sampler,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )
 
@@ -560,11 +560,11 @@ def dcGAT(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=500,
+    epochs=250,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
-    clustering = "modularity",
+    clustering="modularity",
     **params
 ):
     return GAT(
@@ -577,6 +577,6 @@ def dcGAT(
         dropout=dropout,
         memberships=memberships,
         negative_edge_sampler=negative_edge_sampler,
-        clustering = clustering,
+        clustering=clustering,
         **params,
     )

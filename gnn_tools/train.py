@@ -25,6 +25,8 @@ from torch_geometric.loader import ClusterLoader, NeighborLoader, LinkNeighborLo
 import GPUtil
 from adabelief_pytorch import AdaBelief
 from gnn_tools.LinkPredictionDataset import LinkPredictionDataset
+from gnn_tools import utils
+from sklearn.decomposition import TruncatedSVD
 
 
 # ================================
@@ -38,7 +40,7 @@ def link_prediction_task(
     epochs: int,
     feature_vec_dim: int = 64,
     negative_edge_sampler=None,
-    batch_size: int = 2500,
+    batch_size: int = 5000,
     resolution=1.0,
     lr=1e-2,
     clustering="modularity",
@@ -76,6 +78,7 @@ def link_prediction_task(
     r, c, _ = sparse.find(net)
     edge_index = torch.LongTensor(np.array([r.astype(int), c.astype(int)]))
 
+    # Generate base embedding
     if feature_vec is None:
         feature_vec = generate_base_embedding(net, feature_vec_dim)
         feature_vec = torch.FloatTensor(feature_vec)
@@ -92,36 +95,30 @@ def link_prediction_task(
     elif negative_edge_sampler == "uniform":
         neg_sampler = NegativeSampling(mode="binary")
 
+    # Set up minibatching for the data using a clustering algorithm
     train_loader = LinkNeighborLoader(
         data,
-        num_neighbors=[20, 10],
+        num_neighbors=[30, 10],
         neg_sampling=neg_sampler,
         shuffle=True,
         batch_size=batch_size,
         edge_label_index=data.edge_index,
     )
 
+    # Merge the input features and the output features
+    model = LinkPredictionModel(model, feature_vec_dim)
+
     # Set the model in training mode and initialize optimizer
     model.to(device)
     model.train()
 
     # Optimizer
-    # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    # optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
-    optimizer = AdaBelief(
-        model.parameters(),
-        lr=lr,
-        eps=1e-8,
-        betas=(0.9, 0.999),
-        weight_decouple=False,
-        rectify=False,
-        print_change_log=False,
-    )
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     # Train the model for the specified number of epochs
     pbar = tqdm(total=epochs)
 
-    criterion = torch.nn.BCEWithLogitsLoss()
+    train_edge_ids = np.unique(utils.pairing(edge_index[0], edge_index[1]))
     for epoch in range(epochs):
         # Iterate over minibatches of the data
         ave_loss = 0
@@ -135,7 +132,22 @@ def link_prediction_task(
             edge_label_index = batch.edge_label_index
             edge_label = batch.edge_label
             _n_nodes = x.size()[0]
-            # Negative edge injection
+
+            # Resolve conflicting positive and negative edges
+            test_edge_ids = utils.pairing(edge_label_index[0], edge_label_index[1])
+            negative_edge_index = np.where(edge_label == 0)[0]
+            non_conflict_negative_edge_index = negative_edge_index[
+                np.isin(test_edge_ids[negative_edge_index], train_edge_ids, invert=True)
+            ]
+            keep = edge_label == 1
+            keep[non_conflict_negative_edge_index] = True
+            edge_label = edge_label[keep]
+            edge_label_index = edge_label_index[:, keep]
+            n_positives = torch.sum(edge_label)
+            n_negatives = len(edge_label) - n_positives
+            if n_negatives < n_positives * 0.1:
+                continue
+
             z = model(
                 x.to(device),
                 _edge_index.to(device),
@@ -145,6 +157,7 @@ def link_prediction_task(
             score = (z[edge_label_index[0, :], :] * z[edge_label_index[1, :], :]).sum(
                 dim=1
             )
+            criterion = torch.nn.BCEWithLogitsLoss(pos_weight=n_negatives / n_positives)
             loss = criterion(score, edge_label.to(device))
 
             # Compute gradients and update parameters of the model
@@ -166,29 +179,17 @@ def link_prediction_task(
     return model, emb
 
 
-#
-# Node pair samplers
-#
-# def degreeBiasedNegativeEdgeSampling(edge_index, num_nodes, num_neg_samples):
-#    deg = np.bincount(edge_index.reshape(-1).cpu(), minlength=num_nodes).astype(float)
-#    deg /= np.sum(deg)
-#    t = np.random.choice(
-#        num_nodes, p=deg, size=num_neg_samples * edge_index.size()[1]
-#    ).reshape((num_neg_samples, edge_index.size()[1]))
-#    return torch.LongTensor(t)
-#
-#
-# def negative_uniform(edge_index, num_nodes, num_neg_samples):
-#    t = np.random.randint(
-#        0, num_nodes, size=num_neg_samples * edge_index.size()[1]
-#    ).reshape((num_neg_samples, edge_index.size()[1]))
-#    return torch.LongTensor(t)
-#
-#
-# NegativeEdgeSampler = {
-#    "degreeBiased": degreeBiasedNegativeEdgeSampling,
-#    "uniform": negative_uniform,
-# }
+class LinkPredictionModel(torch.nn.Module):
+
+    def __init__(self, gnn_model, feature_vec_dim):
+        super(LinkPredictionModel, self).__init__()
+        self.gnn_model = gnn_model
+        self.fout = torch.nn.Linear(2 * feature_vec_dim, feature_vec_dim)
+
+    def forward(self, x, edge_index):
+        z = self.gnn_model(x, edge_index)
+        z = self.fout(torch.cat([z, x], dim=1))
+        return z
 
 
 # ====================================
@@ -203,7 +204,7 @@ def community_detection_task(
     epochs: int,
     feature_vec_dim: int = 64,
     negative_edge_sampler=None,
-    batch_size: int = 2500,
+    batch_size: int = 1000,
     resolution=2.0,
     lr=1e-2,
     clustering="modularity",
@@ -405,16 +406,21 @@ def generate_base_embedding(A, dim):
     -------
     numpy.ndarray: Base embedding computed using normalized laplacian matrix
     """
-    # svd = TruncatedSVD(n_components=dim, n_iter=7, random_state=42)
-    # base_emb = svd.fit_transform(A)
-    a = np.sqrt(6.0 / (2 * dim))
-    base_emb = np.random.uniform(-a, a, size=(A.shape[0], dim))
+    svd_dim = np.maximum(1, int(dim / 2))
+    rnd_dim = dim - svd_dim
+    svd = TruncatedSVD(n_components=svd_dim, n_iter=7, random_state=42).fit(A)
+    base_emb = svd.components_.T
+
+    if rnd_dim > 0:
+        a = np.sqrt(6.0 / (2 * rnd_dim))
+        emb_rnd = np.random.uniform(-a, a, size=(A.shape[0], rnd_dim))
+        base_emb = np.concatenate([base_emb, emb_rnd], axis=1)
     return base_emb
 
 
 def get_gpu_id(excludeID=[]):
     device = GPUtil.getFirstAvailable(
-        order="random",
+        order="memory",
         maxLoad=1,
         maxMemory=0.3,
         attempts=99999,

@@ -88,8 +88,11 @@ def edge2network(src, trg, n_nodes=None, val=None):
     return toUndirected(sparse.csr_matrix((val, (src, trg)), shape=(n_nodes, n_nodes)))
 
 
-def pairing(r, c):
-    return np.minimum(r, c) + 1j * np.maximum(r, c)
+def pairing(r, c, undirected=True):
+    if undirected:
+        return np.minimum(r, c) + 1j * np.maximum(r, c)
+    else:
+        return r + 1j * c
 
 
 def depairing(v, vstack=False):
