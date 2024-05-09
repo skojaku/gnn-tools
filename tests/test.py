@@ -17,6 +17,24 @@ class TestCommunityDetection(unittest.TestCase):
             [d[1]["club"] for d in G.nodes(data=True)], return_inverse=True
         )[1]
 
+    def test_community_detection(self):
+        model_names = ["GCN", "GAT", "GraphSAGE"]
+        for model_name in model_names:
+            emb = gnn_tools.embedding_models[model_name](
+                self.A, dim=16, memberships=self.labels
+            )
+
+            S = emb @ emb.T
+            U = sparse.csr_matrix(
+                (np.ones_like(self.labels), (np.arange(len(self.labels)), self.labels)),
+                shape=(len(self.labels), len(set(self.labels))),
+            )
+            Sy = (U @ U.T).toarray()
+
+            score = roc_auc_score(Sy.reshape(-1), S.reshape(-1))
+            print(f"{model_name}: {score}")
+            # assert score > 0.5, f"test failed for {model_name}. ROC AUC score must be >0.5: {score}"
+
     def test_embedding_model(self):
         for model_name in gnn_tools.embedding_models.keys():
             emb = gnn_tools.embedding_models[model_name](self.A, dim=16)
