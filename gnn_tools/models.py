@@ -179,7 +179,15 @@ def SGTNormAdjacencyNeumann(network, dim, **params):
 
 @embedding_model
 def dcSBM(network, dim, **params):
-    model = gnn_tools.embeddings.SBMEmbedding()
+    model = gnn_tools.embeddings.SBMEmbedding(degreeCorrected=True)
+    model.fit(network)
+    emb = model.transform(dim=dim)
+    return emb
+
+
+@embedding_model
+def SBM(network, dim, **params):
+    model = gnn_tools.embeddings.SBMEmbedding(degreeCorrected=False)
     model.fit(network)
     emb = model.transform(dim=dim)
     return emb
@@ -237,7 +245,7 @@ def GCN(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
@@ -270,7 +278,7 @@ def GIN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
@@ -303,7 +311,7 @@ def GIN(
 #    device=None,
 #    dim_h=128,
 #    num_layers=2,
-#    epochs=250,
+#    epochs=500,
 #    dropout=0.2,
 #    memberships=None,
 #    negative_edge_sampler="uniform",
@@ -345,7 +353,7 @@ def EdgeCNN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
@@ -378,7 +386,7 @@ def GraphSAGE(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
@@ -411,7 +419,7 @@ def GAT(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="uniform",
@@ -444,7 +452,7 @@ def dcGCN(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
@@ -473,7 +481,7 @@ def dcGIN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
@@ -502,7 +510,7 @@ def dcEdgeCNN(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
@@ -531,7 +539,7 @@ def dcGraphSAGE(
     device=None,
     dim_h=128,
     num_layers=2,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",
@@ -560,7 +568,7 @@ def dcGAT(
     num_layers=2,
     device=None,
     dim_h=128,
-    epochs=250,
+    epochs=500,
     dropout=0.2,
     memberships=None,
     negative_edge_sampler="degreeBiased",

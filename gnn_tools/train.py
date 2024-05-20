@@ -106,7 +106,7 @@ def link_prediction_task(
     )
 
     # Merge the input features and the output features
-    model = LinkPredictionModel(model, feature_vec_dim)
+    # model = LinkPredictionModel(model, feature_vec_dim)
 
     # Set the model in training mode and initialize optimizer
     model.to(device)

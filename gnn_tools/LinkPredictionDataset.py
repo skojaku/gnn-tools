@@ -93,8 +93,7 @@ class LinkPredictionDataset:
         test_src, test_trg = self.splitter.test_edges_
 
         neg_src, neg_trg = self.get_negative_edges(
-            negative_edge_sampler=negative_edge_sampler,
-            **negative_edge_sampler_params
+            negative_edge_sampler=negative_edge_sampler, **negative_edge_sampler_params
         )
 
         self.target_edge_table = pd.DataFrame(
@@ -135,7 +134,9 @@ class LinkPredictionDataset:
         n_test_edges = int(len(test_src))
         neg_src, neg_trg = [], []
         for _ in range(self.negatives_per_positive):
-            _neg_src, _neg_trg = negative_edge_sampler.sampling(size=n_test_edges, test_edges=(test_src, test_trg))
+            _neg_src, _neg_trg = negative_edge_sampler.sampling(
+                size=n_test_edges, test_edges=(test_src, test_trg)
+            )
             neg_src.append(_neg_src)
             neg_trg.append(_neg_trg)
         neg_src, neg_trg = np.concatenate(neg_src), np.concatenate(neg_trg)
