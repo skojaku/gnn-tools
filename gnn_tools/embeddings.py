@@ -546,10 +546,27 @@ class SpectralGraphTransformation(NodeEmbeddings):
         """
 
         if self.kernel_matrix == "laplacian":
-            s_train, u = sparse.linalg.eigs(self.Gkernel_train, k=dim, which="SR")
+            # Find the largest eigenvalue
+            # Flip the eigenvalues by max(lam) - lam. Since the laplacian has eigenvalues that are all positive, this will make the the largest eivalues the smallest and vise versa.
+            # This allows us to use the fast singular value decomposition to identify the eigenvectors
+            # associated with the smallest eigenvalues of the laplacian matrix efficiently.
+            s_largest, _ =  sparse.linalg.eigs(self.Gkernel_train, k=1, which="LR")
+            s_largest = np.real(s_largest)
+            svd = TruncatedSVD(n_components=dim+1, n_iter=7, random_state=42)
+            svd.fit(sparse.diags(s_largest * np.ones(self.Gkernel_train.shape[0])) - self.Gkernel_train)
+            u = svd.components_.T
+            s_train = svd.singular_values_
+            u = u[:, 1:]
+            s_train = s_train[1:]
         else:
-            u, s_train = truncated_eigs(self.Gkernel_train, dim)
-        s_test = np.array(np.sum((self.Gkernel @ u) * u, axis=0)).reshape(-1)
+            svd = TruncatedSVD(n_components=dim, n_iter=7, random_state=42)
+            svd.fit(self.Gkernel_train)
+            s_train = svd.singular_values_
+            u = svd.components_.T
+        s_test = np.diag(u.T @ self.Gkernel @ u)
+
+        #s_train, u = sparse.linalg.eigs(self.Gkernel_train, k=dim, which=which)
+        #s_test = np.diag(u.T @ self.Gkernel @ u)
         s_test, u, s_train = np.real(s_test), np.real(u), np.real(s_train)
         s_train = s_train / np.max(np.abs(s_train))
         s_test = s_test / np.max(np.abs(s_test))
@@ -569,6 +586,7 @@ class SpectralGraphTransformation(NodeEmbeddings):
             spred = self.kernel_func(s_test, alpha)
         self.in_vec = u @ np.diag(np.sqrt(np.abs(spred)))
         self.out_vec = self.in_vec
+        return self
 
     def get_kernel_matrix(self, A):
         deg = np.array(A.sum(axis=1)).reshape(-1)
