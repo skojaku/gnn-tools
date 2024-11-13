@@ -18,7 +18,7 @@ class TestCommunityDetection(unittest.TestCase):
         )[1]
 
     def test_community_detection(self):
-        model_names = ["GCN", "GAT", "GraphSAGE"]
+        model_names = ["fineTunedGCN", "fineTunedGAT", "fineTunedGraphSAGE"]
         for model_name in model_names:
             emb = gnn_tools.embedding_models[model_name](
                 self.A, dim=16, memberships=self.labels
