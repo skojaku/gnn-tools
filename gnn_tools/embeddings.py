@@ -546,7 +546,15 @@ class SpectralGraphTransformation(NodeEmbeddings):
         """
 
         if self.kernel_matrix == "laplacian":
-            s_train, u = sparse.linalg.eigs(self.Gkernel_train, k=dim, which="SR")
+            # Shift the Laplacian matrix by the identity matrix
+            deg = np.array(self.train_net.sum(axis=1)).reshape(-1)
+            # Using Gershgorin circle theorem, the largest eigenvalue of the Laplacian
+            maxeigval = 2 * np.max(deg)
+            u, s_train = truncated_eigs(
+                sparse.eye(self.Gkernel_train.shape[0]) * maxeigval
+                - self.Gkernel_train,
+                dim,
+            )
         else:
             u, s_train = truncated_eigs(self.Gkernel_train, dim)
         s_test = np.array(np.sum((self.Gkernel @ u) * u, axis=0)).reshape(-1)

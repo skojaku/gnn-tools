@@ -679,7 +679,7 @@ def tune_hyperparameters(
 
     # Define parameter grid
     param_ranges = {
-        "num_layers": [1,2],
+        "num_layers": [1, 2],
         "dim_h": [64, 128, 256],
         "dropout": [0.2],
     }
@@ -729,7 +729,7 @@ def tune_hyperparameters(
             model, emb, training_history = train_with_early_stopping(
                 model=model,
                 feature_vec=feature_vec,
-                dim = dim,
+                dim=dim,
                 train_network=train_network,
                 val_src=val_src,
                 val_trg=val_trg,
