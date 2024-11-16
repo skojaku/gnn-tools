@@ -422,12 +422,12 @@ def get_gpu_id(excludeID=[]):
     device = GPUtil.getFirstAvailable(
         order="memory",
         maxLoad=1,
-        maxMemory=0.3,
+        maxMemory=0.6,
         attempts=99999,
         interval=60 * 1,
         verbose=False,
-        #excludeID=excludeID,
-        excludeID=[6,7],
+        # excludeID=excludeID,
+        excludeID=[6, 7],
     )[0]
     device = f"cuda:{device}"
     return device
@@ -740,7 +740,9 @@ class BiasedNegativeSampling(CastMixin):
     def is_triplet(self) -> bool:
         return self.mode == NegativeSamplingMode.triplet
 
-    def sample(self, num_samples: int, num_nodes: Optional[int] = None) -> Tensor:
+    def sample(
+        self, num_samples: int, endpoint: str, num_nodes: Optional[int] = None
+    ) -> Tensor:
         r"""Generates :obj:`num_samples` negative samples."""
         if self.weight is None:
             if num_nodes is None:

@@ -9,9 +9,9 @@ To install the `gnn-tools` package, you can use pip directly from the GitHub rep
 pip install git+https://github.com/skojaku/gnn-tools.git
 ```
 
-With mamba/conda, 
+With mamba/conda,
 ```bash
-mamba create -n linkpred -c bioconda -c nvidia -c pytorch -c pyg python=3.11 cuda-version=12.1 pytorch torchvision torchaudio pytorch-cuda=12.1 snakemake graph-tool scikit-learn numpy==1.23.5 numba scipy==1.10.1 pandas polars networkx seaborn matplotlib gensim ipykernel tqdm black faiss-gpu pyg pytorch-sparse python-igraph -y
+mamba create -n linkpred -c bioconda -c nvidia -c pytorch -c pyg python=3.11 cuda-version=12.4 pytorch torchvision torchaudio pytorch-cuda=12.4 snakemake graph-tool scikit-learn numpy==1.23.5 numba scipy==1.10.1 pandas polars networkx seaborn matplotlib gensim ipykernel tqdm black faiss-gpu pyg pytorch-sparse python-igraph -y
 pip install adabelief-pytorch==0.2.0
 pip install GPUtil powerlaw
 ```
