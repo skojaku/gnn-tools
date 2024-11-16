@@ -32,6 +32,8 @@ from sklearn.decomposition import TruncatedSVD
 # ================================
 # Trainer for link prediction task
 # ================================
+
+
 def link_prediction_task(
     model: torch.nn.Module,
     feature_vec: np.ndarray,
