@@ -427,7 +427,7 @@ def get_gpu_id(excludeID=[]):
         interval=60 * 1,
         verbose=False,
         # excludeID=excludeID,
-        excludeID=[6, 7],
+        # excludeID=[6, 7],
     )[0]
     device = f"cuda:{device}"
     return device
