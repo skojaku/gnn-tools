@@ -421,18 +421,25 @@ def generate_base_embedding(A, dim):
 
 
 def get_gpu_id(excludeID=[]):
-    device = GPUtil.getFirstAvailable(
-        order="memory",
-        maxLoad=1,
-        maxMemory=0.3,
-        attempts=99999,
-        interval=60 * 1,
-        verbose=False,
-        #excludeID=excludeID,
-        excludeID=[6,7],
-    )[0]
-    device = f"cuda:{device}"
-    return device
+    try:
+        gpus = GPUtil.getFirstAvailable(
+            order="memory",
+            maxLoad=1,
+            maxMemory=0.3,
+            attempts=1,
+            interval=0,
+            verbose=False,
+            excludeID=excludeID,
+        )
+        if gpus:
+            return f"cuda:{gpus[0]}"
+    except Exception:
+        pass
+
+    if torch.backends.mps.is_available():
+        return "mps"
+
+    return "cpu"
 
 
 # ================================
