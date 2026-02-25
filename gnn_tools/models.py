@@ -200,6 +200,7 @@ def gnn_embedding(
     model,
     network,
     in_channels,
+    feature_vec=None,
     memberships=None,
     device=None,
     epochs=None,
@@ -210,13 +211,13 @@ def gnn_embedding(
 ):
     if device is None:
         device = gnn_tools.train.get_gpu_id()
-    
+
     n_edges = len(network.data)/2
     if (n_edges > 300000) and (epochs is None):
         epochs = int(np.maximum(100 * 300000 / n_edges, 3))
     elif epochs is None:
         epochs = 500
-    
+
     if (n_edges > 300000) and (batch_size is None):
         batch_size= 5000 * 3
     elif batch_size is None:
@@ -225,7 +226,7 @@ def gnn_embedding(
     if memberships is None:
         model, emb = gnn_tools.train.link_prediction_task(
             model=model,
-            feature_vec=None,
+            feature_vec=feature_vec,
             feature_vec_dim=in_channels,
             net=network,
             negative_edge_sampler=negative_edge_sampler,
@@ -238,7 +239,7 @@ def gnn_embedding(
     else:
         model, emb = gnn_tools.train.community_detection_task(
             model=model,
-            feature_vec=None,
+            feature_vec=feature_vec,
             feature_vec_dim=in_channels,
             memberships=memberships,
             net=network,
@@ -262,6 +263,7 @@ def GCN(
     epochs=None,
     dropout=0.2,
     memberships=None,
+    feature_vec=None,
     negative_edge_sampler="uniform",
     clustering="modularity",
     **params
@@ -276,6 +278,7 @@ def GCN(
             dropout=dropout,
         ),
         in_channels=dim,
+        feature_vec=feature_vec,
         network=network,
         negative_edge_sampler=negative_edge_sampler,
         epochs=epochs,
@@ -296,19 +299,21 @@ def GIN(
     epochs=None,
     dropout=0.2,
     memberships=None,
+    feature_vec=None,
     negative_edge_sampler="uniform",
     clustering="modularity",
     **params
 ):
     return gnn_embedding(
         model=torch_geometric.nn.models.GIN(
-            in_channels=dim,
+            in_channels=-1,
             hidden_channels=dim_h,
             num_layers=num_layers,
             out_channels=dim,
             dropout=dropout,
         ),
         in_channels=dim,
+        feature_vec=feature_vec,
         network=network,
         negative_edge_sampler=negative_edge_sampler,
         device=device,
@@ -371,6 +376,7 @@ def EdgeCNN(
     epochs=None,
     dropout=0.2,
     memberships=None,
+    feature_vec=None,
     negative_edge_sampler="uniform",
     clustering="modularity",
     **params
@@ -384,6 +390,7 @@ def EdgeCNN(
             dropout=dropout,
         ),
         in_channels=dim,
+        feature_vec=feature_vec,
         network=network,
         negative_edge_sampler=negative_edge_sampler,
         device=device,
@@ -404,6 +411,7 @@ def GraphSAGE(
     epochs=None,
     dropout=0.2,
     memberships=None,
+    feature_vec=None,
     negative_edge_sampler="uniform",
     clustering="modularity",
     **params
@@ -417,6 +425,7 @@ def GraphSAGE(
             dropout=dropout,
         ),
         in_channels=dim,
+        feature_vec=feature_vec,
         network=network,
         negative_edge_sampler=negative_edge_sampler,
         device=device,
@@ -437,6 +446,7 @@ def GAT(
     epochs=None,
     dropout=0.2,
     memberships=None,
+    feature_vec=None,
     negative_edge_sampler="uniform",
     clustering="modularity",
     **params
@@ -450,6 +460,7 @@ def GAT(
             dropout=dropout,
         ),
         in_channels=dim,
+        feature_vec=feature_vec,
         network=network,
         device=device,
         negative_edge_sampler=negative_edge_sampler,

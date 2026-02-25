@@ -82,6 +82,8 @@ def link_prediction_task(
     if feature_vec is None:
         feature_vec = generate_base_embedding(net, feature_vec_dim)
         feature_vec = torch.FloatTensor(feature_vec)
+    elif not isinstance(feature_vec, torch.Tensor):
+        feature_vec = torch.FloatTensor(feature_vec)
 
     # Create PyTorch data object with features and edge list
     data = Data(edge_index=edge_index, x=feature_vec)
@@ -217,6 +219,8 @@ def community_detection_task(
 
     if feature_vec is None:
         feature_vec = generate_base_embedding(net, feature_vec_dim)
+        feature_vec = torch.FloatTensor(feature_vec)
+    elif not isinstance(feature_vec, torch.Tensor):
         feature_vec = torch.FloatTensor(feature_vec)
 
     # Create PyTorch data object with features and edge list
