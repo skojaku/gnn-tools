@@ -1,0 +1,17 @@
+name: gnn-tools
+channels:
+  - conda-forge
+  - nvidia
+  - pytorch
+  - pyg
+dependencies:
+  - python=3.11
+  - cuda-version=12.1
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=12.1
+  - pyg
+  - pytorch-sparse
+  - python-igraph
+  - pip

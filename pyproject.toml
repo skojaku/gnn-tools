@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "gnn-tools"
+version = "0.1.0"
+description = "GNN tools for link prediction and community detection"
+requires-python = ">=3.10"
+dependencies = [
+    "scikit-learn",
+    "networkx",
+    "pandas",
+    "numpy",
+    "scipy",
+    "tqdm",
+    "GPUtil",
+    "powerlaw",
+    "gensim",
+    "adabelief-pytorch==0.2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gnn_tools*"]

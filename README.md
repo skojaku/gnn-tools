@@ -4,29 +4,50 @@ Repository for GNN tools for link prediction and community detection.
 
 ### Install
 
-To install the `gnn-tools` package, you can use pip directly from the GitHub repository. Run the following command in your terminal:
+#### Using mamba + uv (recommended)
+
+[mamba](https://mamba.readthedocs.io/) handles the conda packages that need a specific CUDA build (PyTorch, PyG). [uv](https://docs.astral.sh/uv/) then installs the remaining pip dependencies and the package itself.
+
+**1. Install mamba and uv** (skip if already installed)
+
+```bash
+# mamba — fast conda-compatible package manager
+conda install -n base -c conda-forge mamba
+
+# uv — fast Python package installer
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
+
+**2. Create the conda environment**
+
+```bash
+mamba env create -f environment.yml
+mamba activate gnn-tools
+```
+
+> For a CPU-only setup, remove the `cuda-version`, `pytorch-cuda`, and `nvidia` lines from `environment.yml` before running the command.
+
+**3. Install gnn-tools and its pip dependencies**
+
+From PyPI / GitHub:
+```bash
+uv pip install git+https://github.com/skojaku/gnn-tools.git
+```
+
+Or in editable mode from a local clone:
+```bash
+git clone https://github.com/skojaku/gnn-tools.git
+cd gnn-tools
+uv pip install -e .
+```
+
+---
+
+#### pip only (no GPU / quick start)
+
+```bash
 pip install git+https://github.com/skojaku/gnn-tools.git
 ```
-
-With mamba/conda, 
-```bash
-mamba create -n linkpred -c bioconda -c nvidia -c pytorch -c pyg python=3.11 cuda-version=12.1 pytorch torchvision torchaudio pytorch-cuda=12.1 snakemake graph-tool scikit-learn numpy==1.23.5 numba scipy==1.10.1 pandas polars networkx seaborn matplotlib gensim ipykernel tqdm black faiss-gpu pyg pytorch-sparse python-igraph -y
-pip install adabelief-pytorch==0.2.0
-pip install GPUtil powerlaw
-```
-
-Additionally, install the following packages:
-- [PyTorch](https://pytorch.org/get-started/locally/)
-- [PyTorch Geometric](https://pytorch-geometric.readthedocs.io/)
-- [igraph](https://python.igraph.org/en/stable/)
-- [GPUtil](https://pypi.org/project/GPUtil/)
-- [tqdm](https://pypi.org/project/tqdm/)
-- [scikit-learn](https://scikit-learn.org/stable/install.html)
-- [networkx](https://networkx.org/documentation/stable/install.html)
-- [pandas](https://pandas.pydata.org/docs/getting_started/install.html)
-- [numpy](https://numpy.org/install/)
-- [scipy](https://scipy.org/install/)
 
 ### Example
 
