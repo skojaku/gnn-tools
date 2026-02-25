@@ -436,9 +436,6 @@ def get_gpu_id(excludeID=[]):
     except Exception:
         pass
 
-    if torch.backends.mps.is_available():
-        return "mps"
-
     return "cpu"
 
 

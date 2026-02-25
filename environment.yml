@@ -1,13 +1,14 @@
 name: gnn-tools
 channels:
   - conda-forge
-  - pytorch
 dependencies:
   - python=3.11
-  - pytorch>=2.3
-  - pyg
-  - pyg-lib
+  - pytorch=2.1.*=cpu*
+  - pyg-lib=0.3.1
   - python-igraph
   - graph-tool
   - numba
   - pip
+  - pip:
+    - torch_geometric
+    - uv
