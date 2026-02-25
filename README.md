@@ -20,16 +20,25 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 **2. Create the conda environment**
 
+Linux (CUDA 12.1, default):
 ```bash
 mamba env create -f environment.yml
+```
+
+macOS (Apple Silicon, CPU):
+```bash
+mamba env create -f environment-mac.yml
+```
+
+> To use a different CUDA version on Linux, edit the `cuda-version` and `pytorch-cuda` lines in `environment.yml` before running.
+
+```bash
 mamba activate gnn-tools
 ```
 
-> For a CPU-only setup, remove the `cuda-version`, `pytorch-cuda`, and `nvidia` lines from `environment.yml` before running the command.
-
 **3. Install gnn-tools and its pip dependencies**
 
-From PyPI / GitHub:
+From GitHub:
 ```bash
 uv pip install git+https://github.com/skojaku/gnn-tools.git
 ```
